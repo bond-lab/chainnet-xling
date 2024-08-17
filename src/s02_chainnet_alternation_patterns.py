@@ -82,6 +82,7 @@ for relation in ['metaphor', 'metonymy']:
     plt.yticks(fontsize=12)
 
     plt.tight_layout()
+    plt.savefig(f'bin/{relation}_heatmap.png')
     plt.show()
 
 
