@@ -1,6 +1,9 @@
 import random
 from collections import defaultdict
 
+import numpy as np
+from matplotlib.colors import PowerNorm
+
 from src.common.common import open_json, info, save_json, save_csv
 from nltk.corpus import wordnet as wn
 
@@ -51,7 +54,35 @@ for ((relation, from_type, to_type), examples) in sorted(alternation_to_examples
     for (word, from_synset, to_synset) in print_examples:
         print(f'e.g. {word}: {wn.synset(from_synset).definition()} -> {wn.synset(to_synset).definition()}')
 
+info('Plotting heatmap')
+import seaborn as sns
+import matplotlib.pyplot as plt
+basic_types = sorted(list(set(synset_to_type.values())))
+for relation in ['metaphor', 'metonymy']:
+    counts = defaultdict(int)
+    # Get counts of types
+    for ((r, from_type, to_type), examples) in alternation_to_examples.items():
+        if r == relation:
+            counts[(from_type, to_type)] = len(examples)
 
+    heats = np.array([[counts[(from_type, to_type)] for to_type in basic_types] for from_type in basic_types])
+    mask = heats == 0
+
+    cmap = sns.color_palette("magma_r", as_cmap=True)
+    # cmap.set_under('white')
+
+    # Create the heatmap
+    plt.figure(figsize=(18, 16))
+    sns.heatmap(heats,  annot=np.where(heats == 0, np.nan, heats), fmt="g", cmap=cmap, xticklabels=basic_types, yticklabels=basic_types,
+                mask=mask, linewidths=0.5, linecolor='black', norm=PowerNorm(gamma=0.2),)
+    plt.title(relation.upper(), fontsize=30)
+    plt.ylabel('From Domain', fontsize=30)
+    plt.xlabel('To Domain', fontsize=30)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+
+    plt.tight_layout()
+    plt.show()
 
 
 
