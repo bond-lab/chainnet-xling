@@ -1,3 +1,19 @@
+build/
+build.tgz
+
+*~
+
+# Results
+build/
+build.tgz
+
+bin/metaphor_heatmap.png
+bin/metonymy_heatmap.png
+
+# data
+data/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

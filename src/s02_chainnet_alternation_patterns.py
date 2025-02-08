@@ -4,7 +4,8 @@ from collections import defaultdict
 import numpy as np
 from matplotlib.colors import PowerNorm
 
-from src.common.common import open_json, info, save_json, save_csv
+#from src.common.common import open_json, info, save_json, save_csv
+from common.common import open_json, info, save_json, save_csv
 from nltk.corpus import wordnet as wn
 
 assert wn.get_version() == '3.0'

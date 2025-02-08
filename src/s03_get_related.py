@@ -4,8 +4,10 @@ import itertools
 from collections import defaultdict as dd
 from itertools import combinations
 from statistics import mean
+from pathlib import Path
 
-cndir = '../' #Chainnet directory
+cndir = '.' #Chainnet directory
+outdir = 'build'
 
 ewn=wn.Wordnet(lexicon='omw-en:1.4')
 
@@ -91,97 +93,54 @@ for s in stats:
 ## Calculate derivational links between other senses
 ##
 
+drvdir = Path(outdir) / 'deriv-links.tsv'
+drv = open(drvdir, 'w')
+
+print("rel", "src", "tgt", "wn", "link", "src-lem", "tgt=lem",
+      sep = '\t', file=drv)
+
 
 for rel, name in [(meto, 'Meto'), (meta, 'Meta')]:
-    
-    labels = dd(list)
-    for i1 in rel:
-        for i2 in rel[i1]:
-            ll1 = ewn.synsets(ili=i1)[0].lemmas()
-            ll2 = ewn.synsets(ili=i2)[0].lemmas()
-            for l1 in ll1:
-                for l2 in ll2:
-                    if l1==l2: ### ignore identical ones
-                        continue
-                    if l1.startswith(l2):
-                        label = '+' + l1[len(l2):]
-                        labels[label].append((i2, l2, i1, l1))
-                    elif  l2.startswith(l1):
-                        label = '-' + l2[len(l1):]
-                        labels[label].append((i1, l1, i2, l2))
-                
-    for l in sorted(labels, key=lambda x: -len(labels[x])):
-        print(f'{name}-dif:', len(labels[l]), l, labels[l], sep='\t')
-
-    
-
-
-###
-### Now, when our troubles begin!
-###
-
-def tscore(ili1, ili2, twn):
-    """
-    Look up all translations of ili1 and ili2 in twn
-    return the jacaard distance
-    """
-    lem1 = twn.synsets(ili=ili1)
-    lem2 = twn.synsets(ili=ili2)
-    ### FIXME use metric library
-    
-    #print(lem1, lem2)
-    if lem1:  
-        s1 = set(lem1[0].lemmas())
-    else:
-        return 0  ## if one has no lemmas, similarity is 0
-    if lem2:
-        s2 = set(lem2[0].lemmas())
-    else:
-        return 0  ## if one has no lemmas, similarity is 0
-    #print(s1,s2)
-    return len(s1.intersection(s2))/len(s1.union(s2))
-    
-
-###
-### Go through the nouns, look up the senses:
-###  * check each pair
-###  * save translation score as either
-###  * unlinked, metaphor link, metonymy link
-###  report on the average
-###
-
-# sims[wnlabel][relationship] = [score, score, score, ...]
-sims = dd(lambda: dd(list))
-
-for wnet in  wn.lexicons():
-    if wnet.version !='1.4':
-        continue
-    wnlabel = f'{wnet.id}:1.4'
-
-    twn = wn.Wordnet(lexicon=wnlabel)
-    for n in enouns:
-        sss = ewn.synsets(n, pos = 'n')
-        for (ss1, ss2) in combinations(sss, 2):
-            ### assume there is no overlap between metaphor and metonymy
-            ### FIXME should check
-            ili1, ili2  = ss1.ili.id, ss2.ili.id
-            ts = tscore(ili1, ili2, twn)
-            if meto[ili1][ili2] or meto[ili1][ili2]:
-                sims[wnlabel]['meto'].append(ts)
-            elif meta[ili1][ili2] or meta[ili1][ili2]:
-                sims[wnlabel]['meta'].append(ts)
-            else:
-                sims[wnlabel]['xlnk'].append(ts)
-            sims[wnlabel]['all'].append(ts)
-        
-for w in sims:
-    for t in ['all', 'xlnk', 'meta', 'meto']:
-        print (w, t, mean(sims[w][t]), len(sims[w][t]), sep='\t')
+    for wnet in  wn.lexicons():
+        if wnet.version !='1.4':
+            continue
+        wnlabel = f'{wnet.id}:1.4'
+        print(f'Processing {name} derivations with {wnlabel}')
 
         
-print("\n\n\n")
-print('Wordnet\txlnk\tmeta\tmeto\tnon-zero\tall')
-for w in sims:
-    print(f"""{w}\t{mean(sims[w]['xlnk'])/mean(sims[w]['all']):.2f}\t{mean(sims[w]['meta'])/mean(sims[w]['all']):.2f}\t{mean(sims[w]['meto'])/mean(sims[w]['all']):.2f}\t({len([x for x in sims[w]['all'] if x > 0.0])})\t{mean(sims[w]['all'])}""")
+        twn = wn.Wordnet(lexicon=wnlabel)    
+        labels = dd(list)
+        for i1 in rel:
+            for i2 in rel[i1]:
+                if twn.synsets(ili=i1):
+                    ll1 = twn.synsets(ili=i1)[0].lemmas()
+                else:
+                    ll1 = []
+                if twn.synsets(ili=i2):
+                    ll2 = twn.synsets(ili=i2)[0].lemmas()
+                else:
+                    ll2 = []
+                for l1 in ll1:
+                    for l2 in ll2:
+                        label = ''
+                        if l1==l2: ### ignore identical ones
+                            continue
+                        if l1.startswith(l2):
+                            label = wnet.id + '+' +  l1[len(l2):]
+                            labels[label].append((i1, l1, i2, l2))
+                        elif  l2.startswith(l1):
+                            label = wnet.id + '-' + l2[len(l1):]
+                            labels[label].append((i1, l1, i2, l2))
+
+                        if label:
+                            print(name, i1, i2, wnet.id,
+                                  label, l1, l2,
+                                  sep = '\t', file=drv)
+                            
+        for l in sorted(labels, key=lambda x: -len(labels[x])):
+            print(f'{name}-dif:', len(labels[l]), l, labels[l], sep='\t')
+
+    
+
 
         

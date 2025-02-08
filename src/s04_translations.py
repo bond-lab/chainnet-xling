@@ -4,8 +4,15 @@ import itertools
 from collections import defaultdict as dd
 from itertools import combinations
 from statistics import mean
+#from Levenshtein import ratio
+import langcodes
+import language_data
+### should remove pairs with no translations
+from pathlib import Path
 
-cndir = '../' #Chainnet directory
+
+cndir = '.' #Chainnet directory
+outdir = 'build'
 
 ewn=wn.Wordnet(lexicon='omw-en:1.4')
 
@@ -79,6 +86,19 @@ def tscore(ili1, ili2, twn):
     #print(s1,s2)
     return len(s1.intersection(s2))/len(s1.union(s2))
     
+# def tscore(ili1, ili2, twn):
+#     """
+#     Look up all translations of ili1 and ili2 in twn
+#     return the jacaard distance
+#     """
+#     lem1 = twn.synsets(ili=ili1)
+#     lem2 = twn.synsets(ili=ili2)
+#     ### FIXME use metric library
+    
+#     #print(lem1, lem2)
+#     return ratio(lem1,lem2)
+ 
+
 
 ###
 ### Go through the nouns, look up the senses:
@@ -95,7 +115,11 @@ for wnet in  wn.lexicons():
     if wnet.version !='1.4':
         continue
     wnlabel = f'{wnet.id}:1.4'
-
+    if wnet.id == 'omw-en':
+        continue
+    # if wnet.id != 'omw-ja':  ## debug, just look at Japanese
+    #     continue
+    
     twn = wn.Wordnet(lexicon=wnlabel)
     for n in enouns:
         sss = ewn.synsets(n, pos = 'n')
@@ -111,15 +135,44 @@ for wnet in  wn.lexicons():
             else:
                 sims[wnlabel]['xlnk'].append(ts)
             sims[wnlabel]['all'].append(ts)
-        
+
+outdir = Path(outdir) / 'trope-translation.tex'
+out = open(outdir, 'w')
+       
 for w in sims:
     for t in ['all', 'xlnk', 'meta', 'meto']:
-        print (w, t, mean(sims[w][t]), len(sims[w][t]), sep='\t')
+        print ('%', w, t, mean(sims[w][t]), len(sims[w][t]),
+               sep='\t', file=out)
 
         
-print("\n\n\n")
-print('Wordnet\txlnk\tmeta\tmeto\tnon-zero\tall')
+print("\n\n\n", file=out)
+
+total = dd(float)
+print("""  \\textbf{Language} & \\textbf{Code} & \\textbf{Unlinked} & \\textbf{Metaphor} & \\textbf{Metonomy} & \\textbf{All} & \\textbf{Translated} & \\\\ \\midrule""",
+      file=out)
 for w in sims:
-    print(f"""{w}\t{mean(sims[w]['xlnk'])/mean(sims[w]['all']):.2f}\t{mean(sims[w]['meta'])/mean(sims[w]['all']):.2f}\t{mean(sims[w]['meto'])/mean(sims[w]['all']):.2f}\t({len([x for x in sims[w]['all'] if x > 0.0])})\t{mean(sims[w]['all'])}""")
+    lname = langcodes.get(w[4:-4]).language_name()
+    print(lname,
+          w[4:-4],
+          f"{mean(sims[w]['xlnk'])/mean(sims[w]['all']):.2f}",
+          f"{mean(sims[w]['meta'])/mean(sims[w]['all']):.2f}",
+          f"{mean(sims[w]['meto'])/mean(sims[w]['all']):.2f}",
+          f"{mean(sims[w]['all']):.3f}",
+          f"{len([x for x in sims[w]['all'] if x > 0.0]):,d}",
+          sep = ' & ', end = ' \\\\\n', file=out) 
+    total['xlnk'] += mean(sims[w]['xlnk'])/mean(sims[w]['all'])
+    total['meta'] += mean(sims[w]['meta'])/mean(sims[w]['all'])
+    total['meto'] += mean(sims[w]['meto'])/mean(sims[w]['all'])
+    total['all'] += mean(sims[w]['all'])
+    total['nonzero'] += len([x for x in sims[w]['all'] if x > 0.0])
 
-        
+print ('\\hline', file=out)
+print('Mean', '',
+      f"{total['xlnk']/len(sims):.2f}",  f"{total['meta']/len(sims):.2f}",
+      f"{total['meto']/len(sims):.2f}",  f"{total['all']/len(sims):.3f}",
+      f"{total['nonzero']/len(sims):,.1f}", 
+      sep = ' & ', end = ' \\\\\n', file=out) 
+
+print("""   \\caption{Differences in the translation overlap by language}
+    \\label{tab:overlap}
+""", file=out)
