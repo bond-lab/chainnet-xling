@@ -1,5 +1,5 @@
 # Find the CoreLex type of each synset
-from src.common.common import open_text, info, open_json, save_json
+from common.common import open_text, info, open_json, save_json
 from nltk.corpus import wordnet as wn
 
 assert wn.get_version() == '3.0'
@@ -27,18 +27,26 @@ for line in corelex_raw[10:]:
     corelex_anchors[synset] = corelex_type
 
 assert len(set(corelex_anchors.values())) == 39, 'There should be 39 Basic Types'
+## bug fix for FOOD
+## https://github.com/bond-lab/chainnet-xling/issues/3
+
+corelex_anchors[wn.synset('food.n.02')] = 'FOOD'
 
 info('Assigning each synset to its nearest anchor')
 synset_to_type = {}
+offset_to_type = {}
 for i, synset in enumerate(wn.all_synsets('n')):
-    if (i+1)%100 == 0:
+    if (i+1)%1000 == 0:
         info(f'On synset {i+1}')
     assert synset.name() not in synset_to_type
-    distances = [(wn.path_similarity(synset, other_synset), basic_type) for other_synset, basic_type in corelex_anchors.items()]
-    best_type = max(distances, key=lambda x: x[0])[1]
+    similarities = [(wn.path_similarity(synset, other_synset), basic_type) for other_synset, basic_type in corelex_anchors.items()]
+    best_type = max(similarities, key=lambda x: x[0])[1]
     synset_to_type[synset.name()] = best_type
+    offset_to_type[f"{synset.offset():08d}-f{synset.pos()}"] = best_type
 
+    
 info('Saving')
 save_json('data/synset_to_type.json', synset_to_type)
+save_json('data/offset_to_type.json', offset_to_type)
 
 info('Done')
