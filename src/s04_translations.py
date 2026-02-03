@@ -4,7 +4,6 @@ import itertools
 from collections import defaultdict as dd
 from itertools import combinations
 from statistics import mean
-#from Levenshtein import ratio
 import langcodes
 import language_data
 ### should remove pairs with no translations
@@ -14,7 +13,10 @@ from pathlib import Path
 cndir = '.' #Chainnet directory
 outdir = 'build'
 
-ewn=wn.Wordnet(lexicon='omw-en:1.4')
+wn.config.data_directory = ".wn_data"
+wn.download('omw:2.0')
+
+ewn=wn.Wordnet(lexicon='omw-en:2.0')
 
 log = open('related.log', 'w')
 
@@ -26,7 +28,7 @@ for s in ewn.senses(pos='n'):
 
 def skey2ili (key):
     """ give an ili from a sensekey """
-    return ewn.sense(id=skey[key]).synset().ili.id
+    return ewn.sense(id=skey[key]).synset().ili
     
 enouns = set()
 
@@ -84,6 +86,9 @@ def tscore(ili1, ili2, twn):
     else:
         return 0  ## if one has no lemmas, similarity is 0
     #print(s1,s2)
+    if len(s1.union(s2)) == 0:
+        #print ("union is zero")
+        return 0
     return len(s1.intersection(s2))/len(s1.union(s2))
     
 # def tscore(ili1, ili2, twn):
@@ -112,21 +117,21 @@ def tscore(ili1, ili2, twn):
 sims = dd(lambda: dd(list))
 
 for wnet in  wn.lexicons():
-    if wnet.version !='1.4':
+    if wnet.version !='2.0':
         continue
-    wnlabel = f'{wnet.id}:1.4'
+    wnlabel = f'{wnet.id}:2.0'
     if wnet.id == 'omw-en':
         continue
     # if wnet.id != 'omw-ja':  ## debug, just look at Japanese
     #     continue
-    
+    print(f'Processing {wnet.id}')
     twn = wn.Wordnet(lexicon=wnlabel)
     for n in enouns:
         sss = ewn.synsets(n, pos = 'n')
         for (ss1, ss2) in combinations(sss, 2):
             ### assume there is no overlap between metaphor and metonymy
             ### FIXME should check
-            ili1, ili2  = ss1.ili.id, ss2.ili.id
+            ili1, ili2  = ss1.ili, ss2.ili
             ts = tscore(ili1, ili2, twn)
             if meto[ili1][ili2] or meto[ili1][ili2]:
                 sims[wnlabel]['meto'].append(ts)

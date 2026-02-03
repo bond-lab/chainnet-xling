@@ -1,7 +1,8 @@
-numpy==1.21
+numpy>=1.22
 matplotlib
 seaborn
 nltk
-wn
-langcodes<3.4.0
-language_data<1.1.0
+wn>=1.0
+langcodes
+language_data
+
